@@ -1,4 +1,6 @@
+#-*- coding: utf-8 -*-
 # Define imports
+import json
 import msal
 import requests
 
@@ -26,13 +28,16 @@ if not token_result:
   print('New access token was acquired from Azure AD')
 
 # Copy access_token and specify the MS Graph API endpoint you want to call, e.g. 'https://graph.microsoft.com/v1.0/groups' to get all groups in your organization
-url = 'https://graph.microsoft.com/v1.0/users'
 headers = {
   'Authorization': access_token
 }
 
 # Make a GET request to the provided url, passing the access token in a header
-graph_result = requests.get(url=url, headers=headers)
 
-# Print the results in a JSON format
-print(graph_result.json())
+data = json.load(open('rescal.json'))
+
+for elem in data:
+    url = 'https://graph.microsoft.com/v1.0/users/alm@laka.dk/events/' + elem['id']
+    data = requests.delete(url=url, headers=headers)
+
+
