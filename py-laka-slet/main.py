@@ -3,6 +3,9 @@
 import json
 import msal
 import requests
+import configparser
+import re
+valueArr = []
 
 # Enter the details of your AAD app registration
 client_id = '54c69a91-e394-472d-95c4-e40e38f7d7f9'
@@ -33,10 +36,16 @@ headers = {
   'Authorization': access_token
 }
 
+config = configparser.RawConfigParser()
+config.read('target.cfg')
+
+name = dict(config.items('name'))
+
+print(name['name'])
+
 # Make a GET request to the provided url, passing the access token in a header
 graph_result = requests.get(url=url, headers=headers)
 
-valueArr = []
 
 def getDN(graph_result):
   graph_decoded = json.dumps(graph_result.json(), ensure_ascii=False)
@@ -57,10 +66,19 @@ def getDN(graph_result):
   with open("res.json", "w", encoding='utf-8') as outfile:
       json.dump(valueArr, outfile, ensure_ascii=False, separators=(', \n', ":"))
   
-  getCal(valueArr[10]['mail'])
+  getCal(name['name'])
+  exit()
+
+def use_regex(input_text):
+    pattern = re.compile(r"[a-z]+/([0-9]{10})", re.IGNORECASE)
+    if pattern.search(input_text) != None:
+      return True
+    else:
+      return False
+
 
 def getCal(peeps):
-  calUrl = 'https://graph.microsoft.com/v1.0/users/alm@laka.dk/calendarview?startdatetime=2022-10-18&enddatetime=2022-12-20&$search="from:s_CRMprod_booking"&$top=200'
+  calUrl = 'https://graph.microsoft.com/v1.0/users/' + peeps + '/calendarview?startdatetime=2022-10-18&enddatetime=2022-12-20&$top=400000'#$search="from:s_CRMprod_booking"&
   odataNext = True
   values = []
 
@@ -72,7 +90,8 @@ def getCal(peeps):
 
     for elem in vals_de:
       print(elem['subject'] + ", " + elem['start']['dateTime'])
-      if elem['organizer']['emailAddress']['name'] == "s_CRMprod_booking" and elem['bodyPreview'] != "":
+
+      if use_regex(elem['bodyPreview']):
         values.append({'id': elem['id'], 'sub': elem['bodyPreview'], 'from': elem['organizer']['emailAddress']['name'], 'date': elem['start']['dateTime']})
     
     try:
@@ -81,19 +100,12 @@ def getCal(peeps):
     except:
       odataNext = False
 
-  
-
   with open("rescal.json", "w", encoding='utf-8') as outfile:
-      json.dump(values, outfile, ensure_ascii=False, separators=(', \n', ":"))
-  
-  
-    
+      json.dump(values, outfile, ensure_ascii=False, separators=(', \n', ":"))  
 
 getDN(graph_result)
 
 
 
 
-#graph_names = map(getDN, graph_result.json())
-# Print the results in a JSON format
-#print(list(graph_names))
+
