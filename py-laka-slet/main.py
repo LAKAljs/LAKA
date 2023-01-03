@@ -30,16 +30,19 @@ if not token_result:
   access_token = 'Bearer ' + token_result['access_token']
   print('New access token was acquired from Azure AD')
 
-# Copy access_token and specify the MS Graph API endpoint you want to call, e.g. 'https://graph.microsoft.com/v1.0/groups' to get all groups in your organization
+# Copy access_token and specify the MS Graph API endpoint you want to call.
 url = 'https://graph.microsoft.com/v1.0/users'
 headers = {
   'Authorization': access_token
 }
 
+# Read from config-file "target.cfg" to obtain what user and period we're targetting.
 config = configparser.RawConfigParser()
 config.read('target.cfg')
 
 name = dict(config.items('name'))
+
+period = dict(config.items('period'))
 
 print(name['name'])
 
@@ -48,28 +51,39 @@ graph_result = requests.get(url=url, headers=headers)
 
 
 def getDN(graph_result):
+  # Decodes from python obj to json string in order to get correct ascii representation.
   graph_decoded = json.dumps(graph_result.json(), ensure_ascii=False)
 
+  # And then back to python object targeting the "value" field in the object.
   vals = json.loads(graph_decoded)["value"]
 
+  # Try to get the next page of results.
   try:
     odataNext = json.loads(graph_decoded)['@odata.nextLink']
   except:
     odataNext = False
 
+  # iterates through the values, and appends the result to the end of the ValueArr array object.
   for obj in vals:
     valueArr.append({'DP': obj["displayName"], 'mail': obj["id"]})
 
+  # if there was another page of results, obtain it and run this funtion again.
   if odataNext: 
     getDN(requests.get(url=odataNext, headers=headers))
 
-  with open("res.json", "w", encoding='utf-8') as outfile:
+  #Open user.json, in order to write to it.
+  with open("users.json", "w", encoding='utf-8') as outfile:
+      # writes the value of valueArr to it.
       json.dump(valueArr, outfile, ensure_ascii=False, separators=(', \n', ":"))
-  
+
+  # Run next methos with the name from "target.cfg"
   getCal(name['name'])
+
+  # Then exit
   exit()
 
 def use_regex(input_text):
+    # Checks for a pattern that matches with the name and Danish SSN.
     pattern = re.compile(r"[a-z]+/([0-9]{10})", re.IGNORECASE)
     if pattern.search(input_text) != None:
       return True
@@ -78,19 +92,27 @@ def use_regex(input_text):
 
 
 def getCal(peeps):
-  calUrl = 'https://graph.microsoft.com/v1.0/users/' + peeps + '/calendarview?startdatetime=2022-10-18&enddatetime=2022-12-20&$top=400000'#$search="from:s_CRMprod_booking"&
+  # Defies what url to call.
+  calUrl = 'https://graph.microsoft.com/v1.0/users/' + peeps + '/calendarview?startdatetime=' + period['start'] + '&enddatetime=' + period['end'] + '&$top=400000'
   odataNext = True
   values = []
 
+  #If there is a next page
   while odataNext:
+    #get request for the call url
     graph_res = requests.get(url=calUrl, headers=headers)
 
+    #dumps to ensure ascii representation.
     graph_de = json.dumps(graph_res.json(), ensure_ascii=False)
+
+    # converts back to python object.
     vals_de = json.loads(graph_de)["value"]
+
 
     for elem in vals_de:
       print(elem['subject'] + ", " + elem['start']['dateTime'])
 
+      #For each element in the python object, if the pattern matches we append it the end of values array.
       if use_regex(elem['bodyPreview']):
         values.append({'id': elem['id'], 'sub': elem['bodyPreview'], 'from': elem['organizer']['emailAddress']['name'], 'date': elem['start']['dateTime']})
     
@@ -99,13 +121,9 @@ def getCal(peeps):
       calUrl = odataNext
     except:
       odataNext = False
-
+  
   with open("rescal.json", "w", encoding='utf-8') as outfile:
       json.dump(values, outfile, ensure_ascii=False, separators=(', \n', ":"))  
 
+#In order to start process.
 getDN(graph_result)
-
-
-
-
-

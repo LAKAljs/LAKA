@@ -11,6 +11,7 @@ client_secret = 'ZeY8Q~8aRRKOefZGvJ0JTv215kRj50OrVcMzcbWT'
 authority = 'https://login.microsoftonline.com/f2e253d3-223d-4221-9f4e-26a8f31c7bd6'
 scope = ['https://graph.microsoft.com/.default']
 
+# Read from config-file "target.cfg" to obtain what user we're targetting.
 config = configparser.RawConfigParser()
 config.read('target.cfg')
 name = dict(config.items('name'))
@@ -38,11 +39,12 @@ headers = {
   'Authorization': access_token
 }
 
-# Make a GET request to the provided url, passing the access token in a header
-
+# Gets data from rescal.json file.
 data = json.load(open('rescal.json'))
 
+
 for elem in data:
+    #Deletes evey element in data.
     url = 'https://graph.microsoft.com/v1.0/users/' + name['name'] + '/events/' + elem['id']
     data = requests.delete(url=url, headers=headers)
 
